@@ -23,7 +23,7 @@ from utils.nli_data_reader import NLIDataReader
 from utils.logging_handler import LoggingHandler
 from bert_nli import BertNLIModel
 from test_trained_model import evaluate
-from losses import BlendedLoss
+from losses import BlendedLoss, MAIN_LOSS_CHOICES
 
 
 def get_scheduler(optimizer, scheduler: str, warmup_steps: int, t_total: int):
@@ -45,16 +45,17 @@ def get_scheduler(optimizer, scheduler: str, warmup_steps: int, t_total: int):
         raise ValueError("Unknown scheduler {}".format(scheduler))
 
 
-def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, checkpoint, gpu, max_grad_norm, best_acc):
-    loss_fn = nn.CrossEntropyLoss()
+def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, checkpoint, gpu, max_grad_norm, best_acc, loss_type, cross_entropy_flag):
+    loss_fn = BlendedLoss(loss_type, cross_entropy_flag)
 
     step_cnt = 0
     best_model_weights = None
+    torch.cuda.empty_cache() # releases all unoccupied cached memory
 
     for pointer in tqdm(range(0, len(train_data), batch_size),desc='training'):
         model.train() # model was in eval mode in evaluate(); re-activate the train mode
         optimizer.zero_grad() # clear gradients first
-        torch.cuda.empty_cache() # releases all unoccupied cached memory
+        # torch.cuda.empty_cache() # releases all unoccupied cached memory
 
         step_cnt += 1
         sent_pairs = []
@@ -65,20 +66,21 @@ def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, c
             if len(word_tokenize(' '.join(sents))) > 300: continue
             sent_pairs.append(sents)
             labels.append(train_data[i].get_label())
-        logits, _ = model.ff(sent_pairs,checkpoint)
+        logits, probs = model.ff(sent_pairs,checkpoint)
         if logits is None: continue
         true_labels = torch.LongTensor(labels)
         if gpu:
             true_labels = true_labels.to('cuda')
-        loss = loss_fn(logits, true_labels)
+
+        blended_loss, losses = loss_fn.calculate_loss(true_labels, logits, probs)
 
         # back propagate
         if fp16:
-            with amp.scale_loss(loss, optimizer) as scaled_loss:
+            with amp.scale_loss(blended_loss, optimizer) as scaled_loss:
                 scaled_loss.backward()
             torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), max_grad_norm)
         else:
-            loss.backward()
+            blended_loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
 
         # update weights
@@ -87,9 +89,9 @@ def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, c
         # update training rate
         scheduler.step()
 
-        if step_cnt%2000 == 0:
+        if step_cnt%150 == 0:
             acc = evaluate(model,dev_data,checkpoint,mute=True)
-            logging.info('==> step {} dev acc: {}'.format(step_cnt,acc))
+            logging.info('==> step {} dev acc: {}, loss: {}'.format(step_cnt, acc, losses))
             if acc > best_acc:
                 best_acc = acc
                 best_model_weights = copy.deepcopy(model.cpu().state_dict())
@@ -100,7 +102,7 @@ def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, c
 
 def parse_args():
     ap = argparse.ArgumentParser("arguments for bert-nli training")
-    ap.add_argument('-b','--batch_size',type=int,default=8,help='batch size')
+    ap.add_argument('-b','--batch_size',type=int,default=16,help='batch size')
     ap.add_argument('-ep','--epoch_num',type=int,default=1,help='epoch num')
     ap.add_argument('--fp16',type=int,default=0,help='use apex mixed precision training (1) or not (0); do not use this together with checkpoint')
     ap.add_argument('--check_point','-cp',type=int,default=0,help='use checkpoint (1) or not (0); this is required for training bert-large or larger models; do not use this together with apex fp16')
@@ -113,14 +115,16 @@ def parse_args():
     ap.add_argument('--hans',type=int,default=0,help='use hans data (1) or not (0)')
     ap.add_argument('-rl','--reinit_layers',type=int,default=0,help='reinitialise the last N layers')
     ap.add_argument('-fl','--freeze_layers',type=int,default=0,help='whether to freeze all but the lasat few layers (1) or not (0)')
+    ap.add_argument('--cross_entropy_flag', type=bool)
+    ap.add_argument('--loss_type', type=str, default='n-pair', choices=MAIN_LOSS_CHOICES)
 
     args = ap.parse_args()
-    return args.batch_size, args.epoch_num, args.fp16, args.check_point, args.gpu,  args.scheduler_setting, args.max_grad_norm, args.warmup_percent, args.bert_type, args.trained_model, args.hans, args.reinit_layers, args.freeze_layers
+    return args.batch_size, args.epoch_num, args.fp16, args.check_point, args.gpu,  args.scheduler_setting, args.max_grad_norm, args.warmup_percent, args.bert_type, args.trained_model, args.hans, args.reinit_layers, args.freeze_layers, args.loss_type, args.cross_entropy_flag
 
 
 if __name__ == '__main__':
 
-    batch_size, epoch_num, fp16, checkpoint, gpu, scheduler_setting, max_grad_norm, warmup_percent, bert_type, trained_model, hans, reinit_layers, freeze_layers = parse_args()
+    batch_size, epoch_num, fp16, checkpoint, gpu, scheduler_setting, max_grad_norm, warmup_percent, bert_type, trained_model, hans, reinit_layers, freeze_layers, loss_type, cross_entropy_flag = parse_args()
     fp16 = bool(fp16)
     gpu = bool(gpu)
     hans = bool(hans)
@@ -165,7 +169,7 @@ if __name__ == '__main__':
 
     nli_reader = NLIDataReader('datasets/AllNLI')
     train_num_labels = nli_reader.get_num_labels()
-    msnli_data = nli_reader.get_examples('train.gz') #,max_examples=5000)
+    msnli_data = nli_reader.get_examples('train.gz',max_examples=51000)
 
     all_data = msnli_data + hans_data
     random.shuffle(all_data)
@@ -191,9 +195,10 @@ if __name__ == '__main__':
 
     best_acc = -1.
     best_model_dic = None
+    os.makedirs(model_save_path, exist_ok=True)
     for ep in range(epoch_num):
         logging.info('\n=====epoch {}/{}====='.format(ep,epoch_num))
-        model_dic = train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, checkpoint, gpu, max_grad_norm, best_acc)
+        model_dic = train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, checkpoint, gpu, max_grad_norm, best_acc, loss_type, cross_entropy_flag)
         if model_dic is not None:
             best_model_dic = model_dic
             model.save(model_save_path,best_model_dic)

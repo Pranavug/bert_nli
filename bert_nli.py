@@ -18,13 +18,13 @@ class BertNLIModel(nn.Module):
         self.bert_type = bert_type
 
         if 'bert-base' in bert_type:
-            self.bert = BertModel.from_pretrained('bert-base-uncased')
+            self.bert = BertModel.from_pretrained('bert-base-uncased')#, num_labels=3)
             self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
         elif 'bert-large' in bert_type:
-            self.bert = BertModel.from_pretrained('bert-large-uncased')
+            self.bert = BertModel.from_pretrained('bert-large-uncased')#, num_labels=3)
             self.tokenizer = BertTokenizer.from_pretrained('bert-large-uncased')
         elif 'albert' in bert_type:
-            self.bert = AlbertModel.from_pretrained(bert_type)
+            self.bert = AlbertModel.from_pretrained(bert_type)#, num_labels=3)
             self.tokenizer = AlbertTokenizer.from_pretrained(bert_type)
         else:
             print('illegal bert type {}!'.format(bert_type))
@@ -55,7 +55,7 @@ class BertNLIModel(nn.Module):
             for _, pp in self.bert.named_parameters():
                 pp.requires_grad = False
 
-        if layer_num >= 0: 
+        if layer_num >= 0:
             layer_idx = [self.num_hidden_layers-1-i for i in range(layer_num)]
             layer_names = ['encoder.layer.{}'.format(j) for j in layer_idx]
             for pn, pp in self.bert.named_parameters():
@@ -73,7 +73,7 @@ class BertNLIModel(nn.Module):
 
     def forward(self, sent_pair_list, checkpoint=True, bs=None):
         all_probs = None
-        if bs is None: 
+        if bs is None:
             bs = self.batch_size
             no_prog_bar = True
         else: no_prog_bar = False
@@ -155,10 +155,10 @@ class BertNLIModel(nn.Module):
     def ff(self,sent_pair_list,checkpoint):
         ids, types, masks = build_batch(self.tokenizer, sent_pair_list, self.bert_type)
         if ids is None: return None
-        ids_tensor = torch.tensor(ids) 
-        types_tensor = torch.tensor(types) 
-        masks_tensor = torch.tensor(masks) 
-        
+        ids_tensor = torch.tensor(ids)
+        types_tensor = torch.tensor(types)
+        masks_tensor = torch.tensor(masks)
+
         if self.gpu:
             ids_tensor = ids_tensor.to('cuda')
             types_tensor = types_tensor.to('cuda')
@@ -176,7 +176,7 @@ class BertNLIModel(nn.Module):
         # del ids_tensor
         # del types_tensor
         # del masks_tensor
-        # torch.cuda.empty_cache() # releases all unoccupied cached memory 
+        # torch.cuda.empty_cache() # releases all unoccupied cached memory
 
         return logits, probs
 

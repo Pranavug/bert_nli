@@ -31,8 +31,8 @@ class BlendedLoss(object):
         self.cross_entropy_flag = cross_entropy_flag
         self.lambda_blending = 0
         if cross_entropy_flag:
-            self.cross_entropy_loss_fn = nn.BCEWithLogitsLoss()
-            self.lambda_blending = 0.3
+            self.cross_entropy_loss_fn = nn.CrossEntropyLoss()
+            self.lambda_blending = 1
 
     def calculate_loss(self, target, output_embedding, output_cross_entropy=None):
         # print("target", target)

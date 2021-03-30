@@ -39,7 +39,7 @@ def parse_args():
     ap.add_argument('-g','--gpu',type=int,default=1,help='run the model on gpu (1) or not (0)')
     ap.add_argument('-cp','--checkpoint',type=int,default=0,help='run the model with checkpointing (1) or not (0)')
     ap.add_argument('-tm','--trained_model',type=str,default='default',help='path to the trained model you want to test; if set as "default", it will find in output xx.state_dict, where xx is the bert-type you specified')
-    ap.add_argument('-bt','--bert_type',type=str,default='bert-large',help='model you want to test; make sure this is consistent with your trained model')
+    ap.add_argument('-bt','--bert_type',type=str,default='bert-base',help='model you want to test; make sure this is consistent with your trained model')
     ap.add_argument('--hans',type=int,default=0,help='use hans dataset (1) or not (0)')
 
     args = ap.parse_args()
@@ -72,6 +72,6 @@ if __name__ == '__main__':
     model = BertNLIModel(model_path=mpath,batch_size=batch_size,bert_type=bert_type)
     print('test data size: {}'.format(len(test_data)))
     evaluate(model,test_data,checkpoint,test_bs=batch_size)
-    
+
 
 
