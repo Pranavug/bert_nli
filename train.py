@@ -72,7 +72,7 @@ def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, c
         if gpu:
             true_labels = true_labels.to('cuda')
 
-        blended_loss, losses = loss_fn.calculate_loss(true_labels, logits, probs)
+        blended_loss, losses = loss_fn.calculate_loss(true_labels, logits, logits)
 
         # back propagate
         if fp16:
@@ -89,7 +89,7 @@ def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, c
         # update training rate
         scheduler.step()
 
-        if step_cnt%150 == 0:
+        if step_cnt%200 == 0:
             acc = evaluate(model,dev_data,checkpoint,mute=True)
             logging.info('==> step {} dev acc: {}, loss: {}'.format(step_cnt, acc, losses))
             if acc > best_acc:
@@ -169,7 +169,7 @@ if __name__ == '__main__':
 
     nli_reader = NLIDataReader('datasets/AllNLI')
     train_num_labels = nli_reader.get_num_labels()
-    msnli_data = nli_reader.get_examples('train.gz',max_examples=51000)
+    msnli_data = nli_reader.get_examples('train.gz',max_examples=50000)
 
     all_data = msnli_data + hans_data
     random.shuffle(all_data)
