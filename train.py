@@ -2,7 +2,7 @@ import sys
 sys.path.append('./apex')
 
 """
-The system trains BERT on the SNLI + MultiNLI (AllNLI) dataset with softmax loss function. 
+The system trains BERT on the SNLI + MultiNLI (AllNLI) dataset with softmax loss function.
 At every 1000 training steps, the model is evaluated on the dev set.
 """
 import logging
@@ -23,6 +23,7 @@ from utils.nli_data_reader import NLIDataReader
 from utils.logging_handler import LoggingHandler
 from bert_nli import BertNLIModel
 from test_trained_model import evaluate
+from losses import BlendedLoss
 
 
 def get_scheduler(optimizer, scheduler: str, warmup_steps: int, t_total: int):
@@ -53,7 +54,7 @@ def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, c
     for pointer in tqdm(range(0, len(train_data), batch_size),desc='training'):
         model.train() # model was in eval mode in evaluate(); re-activate the train mode
         optimizer.zero_grad() # clear gradients first
-        torch.cuda.empty_cache() # releases all unoccupied cached memory 
+        torch.cuda.empty_cache() # releases all unoccupied cached memory
 
         step_cnt += 1
         sent_pairs = []
@@ -80,7 +81,7 @@ def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, c
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
 
-        # update weights 
+        # update weights
         optimizer.step()
 
         # update training rate
@@ -178,7 +179,7 @@ if __name__ == '__main__':
     total_steps = math.ceil(epoch_num*len(train_data)*1./batch_size)
     warmup_steps = int(total_steps*warmup_percent)
 
-    model = BertNLIModel(gpu=gpu,batch_size=batch_size,bert_type=bert_type,model_path=trained_model, reinit_num=reinit_layers, freeze_layers=freeze_layers) 
+    model = BertNLIModel(gpu=gpu,batch_size=batch_size,bert_type=bert_type,model_path=trained_model, reinit_num=reinit_layers, freeze_layers=freeze_layers)
     optimizer = AdamW(model.parameters(),lr=2e-5,eps=1e-6,correct_bias=False)
     scheduler = get_scheduler(optimizer, scheduler_setting, warmup_steps=warmup_steps, t_total=total_steps)
     if fp16:
@@ -195,6 +196,8 @@ if __name__ == '__main__':
         model_dic = train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, checkpoint, gpu, max_grad_norm, best_acc)
         if model_dic is not None:
             best_model_dic = model_dic
+            model.save(model_save_path,best_model_dic)
+
     assert best_model_dic is not None
 
     # for testing load the best model
@@ -221,4 +224,3 @@ if __name__ == '__main__':
         if os.listdir(model_save_path):
             raise ValueError("Output directory ({}) already exists and is not empty.".format(
                 model_save_path))
-    model.save(model_save_path,best_model_dic,test_acc)
