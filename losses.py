@@ -168,7 +168,7 @@ class AngularLoss(NPairLoss):
     """
 
     def __init__(self, device, l2_reg=0.02, angle_bound=1., lambda_ang=2):
-        super(AngularLoss, self).__init__()
+        super(AngularLoss, self).__init__(device)
         self.device = device
         self.l2_reg = l2_reg
         self.angle_bound = angle_bound
@@ -228,7 +228,7 @@ class NPairAngularLoss(AngularLoss):
     """
 
     def __init__(self, device, l2_reg=0.02, angle_bound=1., lambda_ang=2):
-        super(NPairAngularLoss, self).__init__()
+        super(NPairAngularLoss, self).__init__(device)
         self.device = device
         self.l2_reg = l2_reg
         self.angle_bound = angle_bound
