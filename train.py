@@ -49,7 +49,7 @@ def get_scheduler(optimizer, scheduler: str, warmup_steps: int, t_total: int):
 
 
 def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, checkpoint, gpu, max_grad_norm, best_acc, loss_type, cross_entropy_flag, device):
-    loss_fn = BlendedLoss(loss_type, cross_entropy_flag)
+    loss_fn = BlendedLoss(loss_type, cross_entropy_flag, device)
 
     step_cnt = 0
     best_model_weights = None

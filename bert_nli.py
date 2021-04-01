@@ -16,21 +16,21 @@ CNN_SMALL = 'cnn-small'
 CNN_LARGE = 'cnn-large'
 POOLING_CHOICES = (CLS, AVERAGE, CNN_SMALL, CNN_LARGE)
 
-class CNNLarge(nn.module):
+class CNNLarge(nn.Module):
     def __init__(self):
-        super(SimpleCNN, self).__init__()
+        super(CNNLarge, self).__init__()
 
-        self.conv1 = torch.nn.Conv2d(1, 32, kernel_size = (1, 1), stride = 1, padding = 1)
-        self.pool1 = torch.nn.MaxPool2d(kernel_size = (2, 1), stride = 2, padding = 0)
+        self.conv1 = torch.nn.Conv2d(1, 32, kernel_size = (1, 1), stride = 1, padding = (1, 0))
+        self.pool1 = torch.nn.MaxPool2d(kernel_size = (2, 1), stride = (2, 1), padding = 0)
 
-        self.conv2 = torch.nn.Conv2d(32, 64, kernel_size = (5, 1), stride = 1, padding = 1)
-        self.pool2 = torch.nn.MaxPool2d(kernel_size = (2, 1), stride = 2, padding = 0)
+        self.conv2 = torch.nn.Conv2d(32, 64, kernel_size = (5, 1), stride = 1, padding = (1, 0))
+        self.pool2 = torch.nn.MaxPool2d(kernel_size = (2, 1), stride = (2, 1), padding = 0)
 
-        self.conv3 = torch.nn.Conv2d(64, 128, kernel_size = (3, 1), stride = 1, padding = 1)
-        self.pool3 = torch.nn.MaxPool2d(kernel_size = (3, 1), stride = 2, padding = 0)
+        self.conv3 = torch.nn.Conv2d(64, 128, kernel_size = (3, 1), stride = 1, padding = (1, 0))
+        self.pool3 = torch.nn.MaxPool2d(kernel_size = (3, 1), stride = (2, 1), padding = 0)
 
-        self.conv4 = torch.nn.Conv2d(128, 1, kernel_size = (3, 1), stride = 1, padding = 1)
-        self.pool4 = torch.nn.MaxPool2d(kernel_size = (3, 1), stride = 2, padding = 0)
+        self.conv4 = torch.nn.Conv2d(128, 1, kernel_size = (3, 1), stride = 1, padding = (1, 0))
+        self.pool4 = torch.nn.MaxPool2d(kernel_size = (4, 1), stride = (2, 1), padding = 0)
 
     def forward(self, x):
         x = F.relu(self.conv1(x))
@@ -55,6 +55,7 @@ class BertNLIModel(nn.Module):
         self.bert_type = bert_type
         self.pool_type = pool_type
         self.device = device
+        self.num_layers = num_layers
 
         if 'bert-base' in bert_type:
             self.bert = BertModel.from_pretrained('bert-base-uncased', output_hidden_states=True)#, num_labels=3)
@@ -215,14 +216,16 @@ class BertNLIModel(nn.Module):
 
             outs = outs[self.num_layers]
 
-            print("Input to CNN", outs.shape)
-
             if self.pool_type == CLS:
                 reps = outs[:, 0]
             elif self.pool_type == AVERAGE:
                 reps = torch.mean(outs, 1)
             else:
-                reps = self.cnn(outs)
+                self.cnn.train()
+                # print("CNN training")
+                reps = outs.unsqueeze(1)
+                output = self.cnn(reps)
+                reps = output.squeeze()
 
         logits = self.nli_head(reps)
         probs = self.sm(logits)

@@ -33,16 +33,16 @@ def build_batch(tokenizer, text_list, model_type):
     token_id_list = []
     segment_list = []
     attention_masks = []
-    longest = -1
+    longest = 50
 
     for pair in text_list:
-        sent1, sent2 = pair 
+        sent1, sent2 = pair
         ids, segs = get_pair_input(tokenizer,sent1,sent2,model_type)
         if ids is None or segs is None: continue
-        token_id_list.append(ids)
-        segment_list.append(segs)
-        attention_masks.append([1]*len(ids))
-        if len(ids) > longest: longest = len(ids)
+        token_id_list.append(ids[:min(longest, len(ids))])
+        segment_list.append(segs[:min(longest, len(ids))])
+        attention_masks.append([1]*min(longest, len(ids)))
+        # if len(ids) > longest: longest = len(ids)
 
     if len(token_id_list) == 0: return None, None, None
 

@@ -13,18 +13,18 @@ CROSS_ENTROPY = 'cross-entropy'
 
 
 class BlendedLoss(object):
-    def __init__(self, main_loss_type, cross_entropy_flag):
+    def __init__(self, main_loss_type, cross_entropy_flag, device):
         super(BlendedLoss, self).__init__()
         self.main_loss_type = main_loss_type
         assert main_loss_type in MAIN_LOSS_CHOICES, "invalid main loss: %s" % main_loss_type
 
         self.metrics = []
         if self.main_loss_type == N_PAIR:
-            self.main_loss_fn = NPairLoss()
+            self.main_loss_fn = NPairLoss(device)
         elif self.main_loss_type == ANGULAR:
-            self.main_loss_fn = AngularLoss()
+            self.main_loss_fn = AngularLoss(device)
         elif self.main_loss_type == N_PAIR_ANGULAR:
-            self.main_loss_fn = NPairAngularLoss()
+            self.main_loss_fn = NPairAngularLoss(device)
         else:
             raise ValueError
 
@@ -81,16 +81,17 @@ class NPairLoss(nn.Module):
     http://papers.nips.cc/paper/6199-improved-deep-metric-learning-with-multi-class-n-pair-loss-objective
     """
 
-    def __init__(self, l2_reg=0.02):
+    def __init__(self, device, l2_reg=0.02):
         super(NPairLoss, self).__init__()
         self.l2_reg = l2_reg
+        self.device = device
 
     def forward(self, embeddings, target):
         n_pairs, n_negatives = self.get_n_pairs(target)
 
         if embeddings.is_cuda:
-            n_pairs = n_pairs.cuda()
-            n_negatives = n_negatives.cuda()
+            n_pairs = n_pairs.to(self.device)
+            n_negatives = n_negatives.to(self.device)
 
         anchors = embeddings[n_pairs[:, 0]]    # (n, embedding_size)
         positives = embeddings[n_pairs[:, 1]]  # (n, embedding_size)
@@ -166,8 +167,9 @@ class AngularLoss(NPairLoss):
     https://arxiv.org/pdf/1708.01682.pdf
     """
 
-    def __init__(self, l2_reg=0.02, angle_bound=1., lambda_ang=2):
+    def __init__(self, device, l2_reg=0.02, angle_bound=1., lambda_ang=2):
         super(AngularLoss, self).__init__()
+        self.device = device
         self.l2_reg = l2_reg
         self.angle_bound = angle_bound
         self.lambda_ang = lambda_ang
@@ -177,8 +179,8 @@ class AngularLoss(NPairLoss):
         n_pairs, n_negatives = self.get_n_pairs(target)
 
         if embeddings.is_cuda:
-            n_pairs = n_pairs.cuda()
-            n_negatives = n_negatives.cuda()
+            n_pairs = n_pairs.to(self.device)
+            n_negatives = n_negatives.to(self.device)
 
         anchors = embeddings[n_pairs[:, 0]]  # (n, embedding_size)
         positives = embeddings[n_pairs[:, 1]]  # (n, embedding_size)
@@ -225,8 +227,9 @@ class NPairAngularLoss(AngularLoss):
     https://arxiv.org/pdf/1708.01682.pdf
     """
 
-    def __init__(self, l2_reg=0.02, angle_bound=1., lambda_ang=2):
+    def __init__(self, device, l2_reg=0.02, angle_bound=1., lambda_ang=2):
         super(NPairAngularLoss, self).__init__()
+        self.device = device
         self.l2_reg = l2_reg
         self.angle_bound = angle_bound
         self.lambda_ang = lambda_ang
@@ -235,8 +238,8 @@ class NPairAngularLoss(AngularLoss):
         n_pairs, n_negatives = self.get_n_pairs(target)
 
         if embeddings.is_cuda:
-            n_pairs = n_pairs.cuda()
-            n_negatives = n_negatives.cuda()
+            n_pairs = n_pairs.to(self.device)
+            n_negatives = n_negatives.to(self.device)
 
         anchors = embeddings[n_pairs[:, 0]]    # (n, embedding_size)
         positives = embeddings[n_pairs[:, 1]]  # (n, embedding_size)
