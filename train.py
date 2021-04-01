@@ -105,7 +105,7 @@ def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, c
 
 def parse_args():
     ap = argparse.ArgumentParser("arguments for bert-nli training")
-    ap.add_argument('-b','--batch_size',type=int,default=16,help='batch size')
+    ap.add_argument('-b','--batch_size',type=int,default=17,help='batch size')
     ap.add_argument('-ep','--epoch_num',type=int,default=1,help='epoch num')
     ap.add_argument('--fp16',type=int,default=0,help='use apex mixed precision training (1) or not (0); do not use this together with checkpoint')
     ap.add_argument('--check_point','-cp',type=int,default=0,help='use checkpoint (1) or not (0); this is required for training bert-large or larger models; do not use this together with apex fp16')
