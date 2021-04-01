@@ -9,22 +9,61 @@ from tqdm import tqdm
 from transformers import *
 from utils.utils import build_batch
 
+# Constants
+CLS = 'cls'
+AVERAGE = 'average'
+CNN_SMALL = 'cnn-small'
+CNN_LARGE = 'cnn-large'
+POOLING_CHOICES = (CLS, AVERAGE, CNN_SMALL, CNN_LARGE)
+
+class CNNLarge(nn.module):
+    def __init__(self):
+        super(SimpleCNN, self).__init__()
+
+        self.conv1 = torch.nn.Conv2d(1, 32, kernel_size = (1, 1), stride = 1, padding = 1)
+        self.pool1 = torch.nn.MaxPool2d(kernel_size = (2, 1), stride = 2, padding = 0)
+
+        self.conv2 = torch.nn.Conv2d(32, 64, kernel_size = (5, 1), stride = 1, padding = 1)
+        self.pool2 = torch.nn.MaxPool2d(kernel_size = (2, 1), stride = 2, padding = 0)
+
+        self.conv3 = torch.nn.Conv2d(64, 128, kernel_size = (3, 1), stride = 1, padding = 1)
+        self.pool3 = torch.nn.MaxPool2d(kernel_size = (3, 1), stride = 2, padding = 0)
+
+        self.conv4 = torch.nn.Conv2d(128, 1, kernel_size = (3, 1), stride = 1, padding = 1)
+        self.pool4 = torch.nn.MaxPool2d(kernel_size = (3, 1), stride = 2, padding = 0)
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        x = self.pool1(x)
+
+        x = F.relu(self.conv2(x))
+        x = self.pool2(x)
+
+        x = F.relu(self.conv3(x))
+        x = self.pool3(x)
+
+        x = F.relu(self.conv4(x))
+        x = self.pool4(x)
+        return x
+
 
 class BertNLIModel(nn.Module):
     """Performs prediction, given the input of BERT embeddings.
     """
-    def __init__(self,model_path=None,gpu=True,bert_type='bert-base',label_num=3,batch_size=8,reinit_num=0,freeze_layers=False):
+    def __init__(self,model_path=None,gpu=True,bert_type='bert-base',label_num=3,batch_size=8,reinit_num=0,freeze_layers=False, pool_type=AVERAGE, device="cuda:0", num_layers=12):
         super(BertNLIModel, self).__init__()
         self.bert_type = bert_type
+        self.pool_type = pool_type
+        self.device = device
 
         if 'bert-base' in bert_type:
-            self.bert = BertModel.from_pretrained('bert-base-uncased')#, num_labels=3)
+            self.bert = BertModel.from_pretrained('bert-base-uncased', output_hidden_states=True)#, num_labels=3)
             self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
         elif 'bert-large' in bert_type:
-            self.bert = BertModel.from_pretrained('bert-large-uncased')#, num_labels=3)
+            self.bert = BertModel.from_pretrained('bert-large-uncased', output_hidden_states=True)#, num_labels=3)
             self.tokenizer = BertTokenizer.from_pretrained('bert-large-uncased')
         elif 'albert' in bert_type:
-            self.bert = AlbertModel.from_pretrained(bert_type)#, num_labels=3)
+            self.bert = AlbertModel.from_pretrained(bert_type, output_hidden_states=True)#, num_labels=3)
             self.tokenizer = AlbertTokenizer.from_pretrained(bert_type)
         else:
             print('illegal bert type {}!'.format(bert_type))
@@ -37,17 +76,22 @@ class BertNLIModel(nn.Module):
         self.sm = nn.Softmax(dim=1)
         self.reinit(layer_num=reinit_num, freeze=freeze_layers)
 
+        if self.pool_type == CNN_SMALL:
+            self.cnn = CNNSmall()
+        elif self.pool_type == CNN_LARGE:
+            self.cnn = CNNLarge()
+
         # load trained model
         if model_path is not None:
             if gpu:
                 sdict = torch.load(model_path)
                 self.load_state_dict(sdict)
-                self.to('cuda')
+                self.to(self.device)
             else:
                 sdict = torch.load(model_path,map_location=lambda storage, loc: storage)
                 self.load_state_dict(sdict)
         else:
-            if self.gpu: self.to('cuda')
+            if self.gpu: self.to(self.device)
 
     def reinit(self, layer_num, freeze):
         """Reinitialise parameters of last N layers and freeze all others"""
@@ -67,7 +111,7 @@ class BertNLIModel(nn.Module):
     def load_model(self, sdict):
         if self.gpu:
             self.load_state_dict(sdict)
-            self.to('cuda')
+            self.to(self.device)
         else:
             self.load_state_dict(sdict)
 
@@ -160,16 +204,27 @@ class BertNLIModel(nn.Module):
         masks_tensor = torch.tensor(masks)
 
         if self.gpu:
-            ids_tensor = ids_tensor.to('cuda')
-            types_tensor = types_tensor.to('cuda')
-            masks_tensor = masks_tensor.to('cuda')
+            ids_tensor = ids_tensor.to(self.device)
+            types_tensor = types_tensor.to(self.device)
+            masks_tensor = masks_tensor.to(self.device)
 
         if checkpoint:
-            cls_vecs = self.step_checkpoint_bert(input_ids=ids_tensor, token_type_ids=types_tensor, attention_mask=masks_tensor)[1]
+            reps = self.step_checkpoint_bert(input_ids=ids_tensor, token_type_ids=types_tensor, attention_mask=masks_tensor)[1]
         else:
-            cls_vecs = self.bert(input_ids=ids_tensor, token_type_ids=types_tensor, attention_mask=masks_tensor)[1]
+            _, _, outs = self.bert(input_ids=ids_tensor, token_type_ids=types_tensor, attention_mask=masks_tensor)
 
-        logits = self.nli_head(cls_vecs)
+            outs = outs[self.num_layers]
+
+            print("Input to CNN", outs.shape)
+
+            if self.pool_type == CLS:
+                reps = outs[:, 0]
+            elif self.pool_type == AVERAGE:
+                reps = torch.mean(outs, 1)
+            else:
+                reps = self.cnn(outs)
+
+        logits = self.nli_head(reps)
         probs = self.sm(logits)
 
         # to reduce gpu memory usage

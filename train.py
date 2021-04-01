@@ -21,9 +21,12 @@ from nltk.tokenize import word_tokenize
 
 from utils.nli_data_reader import NLIDataReader
 from utils.logging_handler import LoggingHandler
-from bert_nli import BertNLIModel
+from bert_nli import BertNLIModel, POOLING_CHOICES
 from test_trained_model import evaluate
 from losses import BlendedLoss, MAIN_LOSS_CHOICES
+
+# constants
+DEVICE_CHOICES = ("cuda:0", "cuda:1")
 
 
 def get_scheduler(optimizer, scheduler: str, warmup_steps: int, t_total: int):
@@ -45,7 +48,7 @@ def get_scheduler(optimizer, scheduler: str, warmup_steps: int, t_total: int):
         raise ValueError("Unknown scheduler {}".format(scheduler))
 
 
-def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, checkpoint, gpu, max_grad_norm, best_acc, loss_type, cross_entropy_flag):
+def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, checkpoint, gpu, max_grad_norm, best_acc, loss_type, cross_entropy_flag, device):
     loss_fn = BlendedLoss(loss_type, cross_entropy_flag)
 
     step_cnt = 0
@@ -70,7 +73,7 @@ def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, c
         if logits is None: continue
         true_labels = torch.LongTensor(labels)
         if gpu:
-            true_labels = true_labels.to('cuda')
+            true_labels = true_labels.to(device)
 
         blended_loss, losses = loss_fn.calculate_loss(true_labels, logits, logits)
 
@@ -95,7 +98,7 @@ def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, c
             if acc > best_acc:
                 best_acc = acc
                 best_model_weights = copy.deepcopy(model.cpu().state_dict())
-                model.to('cuda')
+                model.to(device)
 
     return best_model_weights
 
@@ -117,14 +120,18 @@ def parse_args():
     ap.add_argument('-fl','--freeze_layers',type=int,default=0,help='whether to freeze all but the lasat few layers (1) or not (0)')
     ap.add_argument('--cross_entropy_flag', type=bool)
     ap.add_argument('--loss_type', type=str, default='n-pair', choices=MAIN_LOSS_CHOICES)
+    ap.add_argument('--pool_type', type=str, default='average', choices=POOLING_CHOICES)
+    ap.add_argument('--device', type=str, default='cuda:0', choices=DEVICE_CHOICES)
+    ap.add_argument('--num_layers',type=int,default=12,help='No. of encoder layers for BERT')
+    ap.add_argument('--output_dir', type=str, default='temp')
 
     args = ap.parse_args()
-    return args.batch_size, args.epoch_num, args.fp16, args.check_point, args.gpu,  args.scheduler_setting, args.max_grad_norm, args.warmup_percent, args.bert_type, args.trained_model, args.hans, args.reinit_layers, args.freeze_layers, args.loss_type, args.cross_entropy_flag
+    return args.batch_size, args.epoch_num, args.fp16, args.check_point, args.gpu,  args.scheduler_setting, args.max_grad_norm, args.warmup_percent, args.bert_type, args.trained_model, args.hans, args.reinit_layers, args.freeze_layers, args.loss_type, args.cross_entropy_flag, args.pool_type, args.device, args.num_layers, args.output_dir
 
 
 if __name__ == '__main__':
 
-    batch_size, epoch_num, fp16, checkpoint, gpu, scheduler_setting, max_grad_norm, warmup_percent, bert_type, trained_model, hans, reinit_layers, freeze_layers, loss_type, cross_entropy_flag = parse_args()
+    batch_size, epoch_num, fp16, checkpoint, gpu, scheduler_setting, max_grad_norm, warmup_percent, bert_type, trained_model, hans, reinit_layers, freeze_layers, loss_type, cross_entropy_flag, pool_type, device, num_layers, output_dir = parse_args()
     fp16 = bool(fp16)
     gpu = bool(gpu)
     hans = bool(hans)
@@ -143,13 +150,18 @@ if __name__ == '__main__':
     print('max grad norm:\t{}'.format(max_grad_norm))
     print('warmup percent:\t{}'.format(warmup_percent))
     print('using hans:\t{}'.format(hans))
+    print('No. of layers:\t{}'.format(num_layers))
+    print('Pooling type:\t{}'.format(pool_type))
+    print('Loss type:\t{}'.format(loss_type))
+    print('Device:\t{}'.format(device))
+    print('Output Dir:\t{}'.format(output_dir))
     print('=====Arguments=====')
 
     label_num = 3
     if hans:
         model_save_path = 'output/nli_hans_{}-{}'.format(bert_type,datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
     else:
-        model_save_path = 'output/nli_{}-{}'.format(bert_type,datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+        model_save_path = 'output/{}_{}-{}'.format(output_dir, bert_type,datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
 
     print('model save path', model_save_path)
 
@@ -183,7 +195,7 @@ if __name__ == '__main__':
     total_steps = math.ceil(epoch_num*len(train_data)*1./batch_size)
     warmup_steps = int(total_steps*warmup_percent)
 
-    model = BertNLIModel(gpu=gpu,batch_size=batch_size,bert_type=bert_type,model_path=trained_model, reinit_num=reinit_layers, freeze_layers=freeze_layers)
+    model = BertNLIModel(gpu=gpu,batch_size=batch_size,bert_type=bert_type,model_path=trained_model, reinit_num=reinit_layers, freeze_layers=freeze_layers, pool_type=pool_type, device=device, num_layers=num_layers)
     optimizer = AdamW(model.parameters(),lr=2e-5,eps=1e-6,correct_bias=False)
     scheduler = get_scheduler(optimizer, scheduler_setting, warmup_steps=warmup_steps, t_total=total_steps)
     if fp16:
@@ -198,7 +210,7 @@ if __name__ == '__main__':
     os.makedirs(model_save_path, exist_ok=True)
     for ep in range(epoch_num):
         logging.info('\n=====epoch {}/{}====='.format(ep,epoch_num))
-        model_dic = train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, checkpoint, gpu, max_grad_norm, best_acc, loss_type, cross_entropy_flag)
+        model_dic = train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, checkpoint, gpu, max_grad_norm, best_acc, loss_type, cross_entropy_flag, device)
         if model_dic is not None:
             best_model_dic = model_dic
             model.save(model_save_path,best_model_dic)
