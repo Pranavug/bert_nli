@@ -32,7 +32,7 @@ class BlendedLoss(object):
         self.lambda_blending = 0
         if cross_entropy_flag:
             self.cross_entropy_loss_fn = nn.CrossEntropyLoss()
-            self.lambda_blending = 1
+            self.lambda_blending = 0.3
 
     def calculate_loss(self, target, output_embedding, output_cross_entropy=None):
         # print("target", target)

@@ -94,7 +94,7 @@ def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, c
 
         if step_cnt%200 == 0:
             acc = evaluate(model,dev_data,checkpoint,mute=True)
-            logging.info('==> step {} dev acc: {}, loss: {}'.format(step_cnt, acc, losses))
+            logging.info('==> step {} dev acc: {}, best acc: {}, loss: {}'.format(step_cnt, acc, best_acc, losses))
             if acc > best_acc:
                 best_acc = acc
                 best_model_weights = copy.deepcopy(model.cpu().state_dict())
@@ -181,7 +181,7 @@ if __name__ == '__main__':
 
     nli_reader = NLIDataReader('datasets/AllNLI')
     train_num_labels = nli_reader.get_num_labels()
-    msnli_data = nli_reader.get_examples('train.gz',max_examples=50000)
+    msnli_data = nli_reader.get_examples('train.gz',max_examples=150000)
 
     all_data = msnli_data + hans_data
     random.shuffle(all_data)
