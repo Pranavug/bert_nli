@@ -16,6 +16,34 @@ CNN_SMALL = 'cnn-small'
 CNN_LARGE = 'cnn-large'
 POOLING_CHOICES = (CLS, AVERAGE, CNN_SMALL, CNN_LARGE)
 
+class CNNSmall(nn.Module):
+    def __init__(self):
+        super(CNNSmall, self).__init__()
+
+        self.conv1 = torch.nn.Conv2d(1, 32, kernel_size = (5, 1), stride = (3, 1), padding = (1, 0))
+        # self.pool1 = torch.nn.MaxPool2d(kernel_size = (2, 1), stride = (2, 1), padding = 0)
+
+        self.conv2 = torch.nn.Conv2d(32, 64, kernel_size = (5, 1), stride = (3, 1), padding = (1, 0))
+        # self.pool2 = torch.nn.MaxPool2d(kernel_size = (2, 1), stride = (2, 1), padding = 0)
+
+        self.conv4 = torch.nn.Conv2d(64, 1, kernel_size = (5, 1), stride = (3, 1), padding = (1, 0))
+        # self.pool4 = torch.nn.MaxPool2d(kernel_size = (4, 1), stride = (2, 1), padding = 0)
+
+    def forward(self, x):
+        x = F.tanh(self.conv1(x))
+        # x = self.pool1(x)
+
+        x = F.tanh(self.conv2(x))
+        # x = self.pool2(x)
+
+        # x = F.relu(self.conv3(x))
+        # x = self.pool3(x)
+
+        x = F.tanh(self.conv4(x))
+        # x = self.pool4(x)
+        return x
+
+
 class CNNLarge(nn.Module):
     def __init__(self):
         super(CNNLarge, self).__init__()

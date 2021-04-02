@@ -26,7 +26,7 @@ from test_trained_model import evaluate
 from losses import BlendedLoss, MAIN_LOSS_CHOICES
 
 # constants
-DEVICE_CHOICES = ("cuda:0", "cuda:1")
+DEVICE_CHOICES = ("cuda:0", "cuda:1", "cuda:2", "cuda:3")
 
 
 def get_scheduler(optimizer, scheduler: str, warmup_steps: int, t_total: int):
@@ -196,7 +196,7 @@ if __name__ == '__main__':
     warmup_steps = int(total_steps*warmup_percent)
 
     model = BertNLIModel(gpu=gpu,batch_size=batch_size,bert_type=bert_type,model_path=trained_model, reinit_num=reinit_layers, freeze_layers=freeze_layers, pool_type=pool_type, device=device, num_layers=num_layers)
-    optimizer = AdamW(model.parameters(),lr=2e-5,eps=1e-6,correct_bias=False)
+    optimizer = AdamW(model.parameters(),lr=4e-5,eps=1e-6,correct_bias=False)
     scheduler = get_scheduler(optimizer, scheduler_setting, warmup_steps=warmup_steps, t_total=total_steps)
     if fp16:
         try:
