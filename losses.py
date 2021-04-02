@@ -1,13 +1,18 @@
 import torch
 import torch.nn as nn
 import numpy as np
+import torch.nn.functional as F
+from triplet_generator import HardestNegativeTripletSelector, RandomNegativeTripletSelector, SemihardNegativeTripletSelector
 
 
 # Constants
 N_PAIR = 'n-pair'
 ANGULAR = 'angular'
 N_PAIR_ANGULAR = 'n-pair-angular'
-MAIN_LOSS_CHOICES = (N_PAIR, ANGULAR, N_PAIR_ANGULAR)
+RANDOM_TRIPLET = 'random-triplet'
+HARD_TRIPLET = 'hard-triplet'
+SEMI_HARD_TRIPLET = 'semi-hard-triplet'
+MAIN_LOSS_CHOICES = (N_PAIR, ANGULAR, N_PAIR_ANGULAR, RANDOM_TRIPLET, HARD_TRIPLET, SEMI_HARD_TRIPLET)
 
 CROSS_ENTROPY = 'cross-entropy'
 
@@ -263,3 +268,66 @@ class NPairAngularLoss(AngularLoss):
         angular = self.angular_loss(anchors, positives, negatives, angle_bound)
 
         return (n_pair + self.lambda_ang * angular) / (1+self.lambda_ang)
+
+
+class OnlineTripletLoss(nn.Module):
+    """
+    Online Triplets loss
+    Takes a batch of embeddings and corresponding labels.
+    Triplets are generated using triplet_selector object that take embeddings and targets and return indices of
+    triplets
+    """
+
+    def __init__(self, loss_type, margin, device):
+        super(OnlineTripletLoss, self).__init__()
+        self.margin = margin
+        self.device = device
+
+        if loss_type == RANDOM_TRIPLET:
+            self.triplet_selector = RandomNegativeTripletSelector(margin)
+        elif loss_type == HARD_TRIPLET:
+            self.triplet_selector = HardestNegativeTripletSelector(margin)
+        elif loss_type == SEMI_HARD_TRIPLET:
+            self.triplet_selector = SemihardNegativeTripletSelector(margin)
+
+    def calculate_loss(self, target, embeddings, ignore):
+        return self.forward(embeddings, target)
+
+    def forward(self, embeddings, target):
+
+        triplets = self.triplet_selector.get_triplets(embeddings, target)
+
+        if embeddings.is_cuda:
+            triplets = triplets.to(self.device)
+
+        ap_distances = (embeddings[triplets[:, 0]] - embeddings[triplets[:, 1]]).pow(2).sum(1)  # .pow(.5)
+        an_distances = (embeddings[triplets[:, 0]] - embeddings[triplets[:, 2]]).pow(2).sum(1)  # .pow(.5)
+        losses = F.relu(ap_distances - an_distances + self.margin)
+
+        return losses.mean(), len(triplets)
+
+
+class OnlineContrastiveLoss(nn.Module):
+    """
+    Online Contrastive loss
+    Takes a batch of embeddings and corresponding labels.
+    Pairs are generated using pair_selector object that take embeddings and targets and return indices of positive
+    and negative pairs
+    """
+
+    def __init__(self, margin, pair_selector):
+        super(OnlineContrastiveLoss, self).__init__()
+        self.margin = margin
+        self.pair_selector = pair_selector
+
+    def forward(self, embeddings, target):
+        positive_pairs, negative_pairs = self.pair_selector.get_pairs(embeddings, target)
+        if embeddings.is_cuda:
+            positive_pairs = positive_pairs.cuda()
+            negative_pairs = negative_pairs.cuda()
+        positive_loss = (embeddings[positive_pairs[:, 0]] - embeddings[positive_pairs[:, 1]]).pow(2).sum(1)
+        negative_loss = F.relu(
+            self.margin - (embeddings[negative_pairs[:, 0]] - embeddings[negative_pairs[:, 1]]).pow(2).sum(
+                1).sqrt()).pow(2)
+        loss = torch.cat([positive_loss, negative_loss], dim=0)
+        return loss.mean()
