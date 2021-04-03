@@ -95,7 +95,7 @@ def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, c
         # update training rate
         scheduler.step()
 
-        if step_cnt%200 == 0:
+        if step_cnt%1000 == 0:
             acc = evaluate(model,dev_data,checkpoint,mute=True)
             logging.info('==> step {} dev acc: {}, best acc: {}, loss: {}'.format(step_cnt, acc, best_acc, losses))
             if acc > best_acc:
@@ -116,7 +116,7 @@ def parse_args():
     ap.add_argument('-ss','--scheduler_setting',type=str,default='WarmupLinear',choices=['WarmupLinear','ConstantLR','WarmupConstant','WarmupCosine','WarmupCosineWithHardRestarts'])
     ap.add_argument('-tm','--trained_model',type=str,default='None',help='path to the trained model; make sure the trained model is consistent with the model you want to train')
     ap.add_argument('-mg','--max_grad_norm',type=float,default=1.,help='maximum gradient norm')
-    ap.add_argument('-wp','--warmup_percent',type=float,default=0.2,help='how many percentage of steps are used for warmup')
+    ap.add_argument('-wp','--warmup_percent',type=float,default=0.1,help='how many percentage of steps are used for warmup')
     ap.add_argument('-bt','--bert_type',type=str,default='bert-base',help='transformer (bert) pre-trained model you want to use', choices=['bert-base','bert-large','albert-base-v2','albert-large-v2'])
     ap.add_argument('--hans',type=int,default=0,help='use hans data (1) or not (0)')
     ap.add_argument('-rl','--reinit_layers',type=int,default=0,help='reinitialise the last N layers')
@@ -199,7 +199,7 @@ if __name__ == '__main__':
     warmup_steps = int(total_steps*warmup_percent)
 
     model = BertNLIModel(gpu=gpu,batch_size=batch_size,bert_type=bert_type,model_path=trained_model, reinit_num=reinit_layers, freeze_layers=freeze_layers, pool_type=pool_type, device=device, num_layers=num_layers)
-    optimizer = AdamW(model.parameters(),lr=4e-3,eps=1e-6,correct_bias=False)
+    optimizer = AdamW(model.parameters(),lr=1e-5,eps=1e-6,correct_bias=False)
     scheduler = get_scheduler(optimizer, scheduler_setting, warmup_steps=warmup_steps, t_total=total_steps)
     if fp16:
         try:
