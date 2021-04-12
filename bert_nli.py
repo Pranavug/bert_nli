@@ -78,7 +78,7 @@ class CNNLarge(nn.Module):
 class BertNLIModel(nn.Module):
     """Performs prediction, given the input of BERT embeddings.
     """
-    def __init__(self,model_path=None,gpu=True,bert_type='bert-base',label_num=3,batch_size=8,reinit_num=0,freeze_layers=False, pool_type=AVERAGE, device="cuda:0", num_layers=12):
+    def __init__(self,model_path=None,gpu=True,bert_type='bert-base',label_num=3,batch_size=8,reinit_num=0,freeze_layers=False, pool_type=AVERAGE, device="cuda:0", num_layers=12, bert_layers=[]):
         super(BertNLIModel, self).__init__()
         self.bert_type = bert_type
         self.pool_type = pool_type
@@ -96,6 +96,17 @@ class BertNLIModel(nn.Module):
             self.tokenizer = AlbertTokenizer.from_pretrained(bert_type)
         else:
             print('illegal bert type {}!'.format(bert_type))
+
+        oldModuleList = self.bert.encoder.layer
+        newModuleList = nn.ModuleList()
+
+        # Now iterate over all layers, only keepign only the relevant layers.
+        for idx in range(0, len(bert_layers)):
+            newModuleList.append(oldModuleList[bert_layers[idx]])
+
+        self.bert.encoder.layer = newModuleList
+
+        print("Bert Layers:", bert_layers, "Module List:", newModuleList)
 
         self.num_hidden_layers = self.bert.config.num_hidden_layers
         self.vdim = self.bert.config.hidden_size

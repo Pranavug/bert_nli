@@ -27,6 +27,8 @@ from losses import BlendedLoss, MAIN_LOSS_CHOICES, OnlineTripletLoss
 
 # constants
 DEVICE_CHOICES = ("cuda:0", "cuda:1", "cuda:2", "cuda:3")
+acc_pruned_list = []
+num_layers_pruned = 0
 
 
 def get_scheduler(optimizer, scheduler: str, warmup_steps: int, t_total: int):
@@ -49,6 +51,9 @@ def get_scheduler(optimizer, scheduler: str, warmup_steps: int, t_total: int):
 
 
 def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, checkpoint, gpu, max_grad_norm, best_acc, loss_type, cross_entropy_flag, device):
+    global acc_pruned_list
+    global num_layers_pruned
+
     if 'triplet' in loss_type:
         loss_fn = OnlineTripletLoss(loss_type, 1.0, device)
     else:
@@ -95,13 +100,22 @@ def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, c
         # update training rate
         scheduler.step()
 
-        if step_cnt%1000 == 0:
+        if step_cnt%80 == 0:
             acc = evaluate(model,dev_data,checkpoint,mute=True)
-            logging.info('==> step {} dev acc: {}, best acc: {}, loss: {}'.format(step_cnt, acc, best_acc, losses))
+            logging.info('==> step {} dev acc: {}, best acc: {}, best acc list: {}, loss: {}'.format(step_cnt, acc, best_acc, acc_pruned_list, losses))
             if acc > best_acc:
                 best_acc = acc
                 best_model_weights = copy.deepcopy(model.cpu().state_dict())
                 model.to(device)
+
+    if num_layers_pruned < model.num_layers:
+        acc_pruned_list.append(best_acc)
+        model.num_layers -= 1
+
+        best_acc = -1
+        num_layers_pruned += 1
+
+        print("Model no. of layers:", model.num_layers, "No. of layers pruned:", num_layers_pruned)
 
     return best_model_weights
 
@@ -127,14 +141,15 @@ def parse_args():
     ap.add_argument('--device', type=str, default='cuda:0', choices=DEVICE_CHOICES)
     ap.add_argument('--num_layers',type=int,default=12,help='No. of encoder layers for BERT')
     ap.add_argument('--output_dir', type=str, default='temp')
+    ap.add_argument('--bert_layers', nargs="+", type=int, default=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
 
     args = ap.parse_args()
-    return args.batch_size, args.epoch_num, args.fp16, args.check_point, args.gpu,  args.scheduler_setting, args.max_grad_norm, args.warmup_percent, args.bert_type, args.trained_model, args.hans, args.reinit_layers, args.freeze_layers, args.loss_type, args.cross_entropy_flag, args.pool_type, args.device, args.num_layers, args.output_dir
+    return args.batch_size, args.epoch_num, args.fp16, args.check_point, args.gpu,  args.scheduler_setting, args.max_grad_norm, args.warmup_percent, args.bert_type, args.trained_model, args.hans, args.reinit_layers, args.freeze_layers, args.loss_type, args.cross_entropy_flag, args.pool_type, args.device, args.num_layers, args.output_dir, args.bert_layers
 
 
 if __name__ == '__main__':
 
-    batch_size, epoch_num, fp16, checkpoint, gpu, scheduler_setting, max_grad_norm, warmup_percent, bert_type, trained_model, hans, reinit_layers, freeze_layers, loss_type, cross_entropy_flag, pool_type, device, num_layers, output_dir = parse_args()
+    batch_size, epoch_num, fp16, checkpoint, gpu, scheduler_setting, max_grad_norm, warmup_percent, bert_type, trained_model, hans, reinit_layers, freeze_layers, loss_type, cross_entropy_flag, pool_type, device, num_layers, output_dir, bert_layers = parse_args()
     fp16 = bool(fp16)
     gpu = bool(gpu)
     hans = bool(hans)
@@ -184,7 +199,7 @@ if __name__ == '__main__':
 
     nli_reader = NLIDataReader('datasets/AllNLI')
     train_num_labels = nli_reader.get_num_labels()
-    msnli_data = nli_reader.get_examples('train.gz',max_examples=150000)
+    msnli_data = nli_reader.get_examples('train.gz',max_examples=1500)
 
     all_data = msnli_data + hans_data
     random.shuffle(all_data)
@@ -198,7 +213,7 @@ if __name__ == '__main__':
     total_steps = math.ceil(epoch_num*len(train_data)*1./batch_size)
     warmup_steps = int(total_steps*warmup_percent)
 
-    model = BertNLIModel(gpu=gpu,batch_size=batch_size,bert_type=bert_type,model_path=trained_model, reinit_num=reinit_layers, freeze_layers=freeze_layers, pool_type=pool_type, device=device, num_layers=num_layers)
+    model = BertNLIModel(gpu=gpu,batch_size=batch_size,bert_type=bert_type,model_path=trained_model, reinit_num=reinit_layers, freeze_layers=freeze_layers, pool_type=pool_type, device=device, num_layers=num_layers, bert_layers=bert_layers)
     optimizer = AdamW(model.parameters(),lr=1e-5,eps=1e-6,correct_bias=False)
     scheduler = get_scheduler(optimizer, scheduler_setting, warmup_steps=warmup_steps, t_total=total_steps)
     if fp16:
