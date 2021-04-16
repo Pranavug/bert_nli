@@ -162,7 +162,7 @@ class BertNLIModel(nn.Module):
             no_prog_bar = True
         else: no_prog_bar = False
         for batch_idx in tqdm(range(0,len(sent_pair_list),bs), disable=no_prog_bar,desc='evaluate'):
-            probs = self.ff(sent_pair_list[batch_idx:batch_idx+bs],checkpoint)[1].data.cpu().numpy()
+            probs = self.ff(sent_pair_list[batch_idx:batch_idx+bs],checkpoint, is_evaluate=True)[1].data.cpu().numpy()
             if all_probs is None:
                 all_probs = probs
             else:
@@ -236,7 +236,7 @@ class BertNLIModel(nn.Module):
         return outputs  # sequence_output, pooled_output, (hidden_states), (attentions)
 
 
-    def ff(self,sent_pair_list,checkpoint):
+    def ff(self,sent_pair_list,checkpoint, is_evaluate=False):
         ids, types, masks = build_batch(self.tokenizer, sent_pair_list, self.bert_type)
         if ids is None: return None
         ids_tensor = torch.tensor(ids)
@@ -275,7 +275,10 @@ class BertNLIModel(nn.Module):
         # del masks_tensor
         # torch.cuda.empty_cache() # releases all unoccupied cached memory
 
-        return logits, probs
+        if is_evaluate:
+            return logits, probs
+        else:
+            return logits, reps
 
     def save(self, output_path, config_dic=None, acc=None):
         if acc is None:

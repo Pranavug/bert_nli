@@ -5,6 +5,7 @@ sys.path.append('./apex')
 The system trains BERT on the SNLI + MultiNLI (AllNLI) dataset with softmax loss function.
 At every 1000 training steps, the model is evaluated on the dev set.
 """
+import time
 import logging
 from datetime import datetime
 import torch.nn as nn
@@ -24,6 +25,7 @@ from utils.logging_handler import LoggingHandler
 from bert_nli import BertNLIModel, POOLING_CHOICES
 from test_trained_model import evaluate
 from losses import BlendedLoss, MAIN_LOSS_CHOICES, OnlineTripletLoss
+from evaluate import evaluate_knn, evaluate_svm
 
 # constants
 DEVICE_CHOICES = ("cuda:0", "cuda:1", "cuda:2", "cuda:3")
@@ -77,7 +79,7 @@ def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, c
             if len(word_tokenize(' '.join(sents))) > 300: continue
             sent_pairs.append(sents)
             labels.append(train_data[i].get_label())
-        logits, probs = model.ff(sent_pairs,checkpoint)
+        logits, reps = model.ff(sent_pairs,checkpoint)
         if logits is None: continue
         true_labels = torch.LongTensor(labels)
         if gpu:
@@ -108,7 +110,7 @@ def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, c
                 best_model_weights = copy.deepcopy(model.cpu().state_dict())
                 model.to(device)
 
-    if num_layers_pruned > model.num_layers:
+    if model.num_layers < 1:
         acc_pruned_list.append(best_acc)
         model.num_layers -= 1
 
@@ -226,6 +228,8 @@ if __name__ == '__main__':
     best_acc = -1.
     best_model_dic = None
     os.makedirs(model_save_path, exist_ok=True)
+
+    train_start_ts = time.time()
     for ep in range(epoch_num):
         logging.info('\n=====epoch {}/{}====='.format(ep,epoch_num))
         model_dic = train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, checkpoint, gpu, max_grad_norm, best_acc, loss_type, cross_entropy_flag, device)
@@ -233,11 +237,13 @@ if __name__ == '__main__':
             best_model_dic = model_dic
             model.save(model_save_path,best_model_dic)
 
-    assert best_model_dic is not None
+    train_end_ts = time.time()
+
+    # assert best_model_dic is not None
 
     # for testing load the best model
-    model.load_model(best_model_dic)
-    logging.info('\n=====Training finished. Now start test=====')
+    # model.load_model(best_model_dic)
+    # logging.info('\n=====Training finished. Now start test=====')
 
     if hans:
         nli_reader = NLIDataReader('datasets/Hans')
@@ -246,13 +252,24 @@ if __name__ == '__main__':
         hans_test_data = []
 
     nli_reader = NLIDataReader('datasets/AllNLI')
-    msnli_test_data = nli_reader.get_examples('dev.gz') #,max_examples=50)
+    msnli_test_data = nli_reader.get_examples('dev.gz')
+    train_data = nli_reader.get_examples('train.gz',max_examples=50000)
+    random.shuffle(train_data)
 
     test_data = msnli_test_data + hans_test_data
 
     logging.info('test data size: {}'.format(len(test_data)))
+    predict_start_ts = time.time()
     test_acc = evaluate(model,test_data,batch_size)
+    predict_end_ts = time.time()
     logging.info('accuracy on test set: {}'.format(test_acc))
+    print("Training time:", train_end_ts-train_start_ts, "Prediction time:", predict_end_ts-predict_start_ts)
+
+    evaluate_knn(model, train_data, test_data, device, batch_size, checkpoint)
+
+    train_data = nli_reader.get_examples('train.gz',max_examples=25000)
+    random.shuffle(train_data)
+    evaluate_svm(model, train_data, test_data, device, batch_size, checkpoint)
 
     if model_save_path is not None:
         os.makedirs(model_save_path, exist_ok=True)
