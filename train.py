@@ -242,8 +242,8 @@ if __name__ == '__main__':
     # assert best_model_dic is not None
 
     # for testing load the best model
-    # model.load_model(best_model_dic)
-    # logging.info('\n=====Training finished. Now start test=====')
+    model.load_model(best_model_dic)
+    logging.info('\n=====Training finished. Now start test=====')
 
     if hans:
         nli_reader = NLIDataReader('datasets/Hans')
