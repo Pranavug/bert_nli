@@ -104,7 +104,7 @@ def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, c
         # update training rate
         scheduler.step()
 
-        if step_cnt%300 == 0:
+        if step_cnt%2000 == 0:
             acc = evaluate(model,dev_data,checkpoint,mute=True)
             logging.info('==> step {} dev acc: {}, best acc: {}, best acc list: {}, loss: {}'.format(step_cnt, acc, best_acc, acc_pruned_list, losses))
             if acc > best_acc:
