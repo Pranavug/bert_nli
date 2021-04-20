@@ -31,6 +31,7 @@ from evaluate import evaluate_knn, evaluate_svm
 DEVICE_CHOICES = ("cuda:0", "cuda:1", "cuda:2", "cuda:3")
 acc_pruned_list = []
 num_layers_pruned = 0
+best_acc = -1
 
 
 def get_scheduler(optimizer, scheduler: str, warmup_steps: int, t_total: int):
@@ -52,9 +53,10 @@ def get_scheduler(optimizer, scheduler: str, warmup_steps: int, t_total: int):
         raise ValueError("Unknown scheduler {}".format(scheduler))
 
 
-def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, checkpoint, gpu, max_grad_norm, best_acc, loss_type, cross_entropy_flag, device):
+def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, checkpoint, gpu, max_grad_norm, best_acc_1, loss_type, cross_entropy_flag, device):
     global acc_pruned_list
     global num_layers_pruned
+    global best_acc
 
     if 'triplet' in loss_type:
         loss_fn = OnlineTripletLoss(loss_type, 1.0, device)
@@ -102,7 +104,7 @@ def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, c
         # update training rate
         scheduler.step()
 
-        if step_cnt%1000 == 0:
+        if step_cnt%300 == 0:
             acc = evaluate(model,dev_data,checkpoint,mute=True)
             logging.info('==> step {} dev acc: {}, best acc: {}, best acc list: {}, loss: {}'.format(step_cnt, acc, best_acc, acc_pruned_list, losses))
             if acc > best_acc:
@@ -201,7 +203,7 @@ if __name__ == '__main__':
 
     nli_reader = NLIDataReader('datasets/AllNLI')
     train_num_labels = nli_reader.get_num_labels()
-    msnli_data = nli_reader.get_examples('train.gz',max_examples=650000)
+    msnli_data = nli_reader.get_examples('train.gz',max_examples=6500)
 
     all_data = msnli_data + hans_data
     random.shuffle(all_data)
@@ -225,7 +227,6 @@ if __name__ == '__main__':
             raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
         model, optimizer = amp.initialize(model, optimizer, opt_level='O1')
 
-    best_acc = -1.
     best_model_dic = None
     os.makedirs(model_save_path, exist_ok=True)
 
@@ -257,10 +258,11 @@ if __name__ == '__main__':
     random.shuffle(train_data)
 
     test_data = msnli_test_data + hans_test_data
+    # test_data = dev_data
 
     logging.info('test data size: {}'.format(len(test_data)))
     predict_start_ts = time.time()
-    test_acc = evaluate(model,test_data,batch_size)
+    test_acc = evaluate(model, test_data, checkpoint)
     predict_end_ts = time.time()
     logging.info('accuracy on test set: {}'.format(test_acc))
     print("Training time:", train_end_ts-train_start_ts, "Prediction time:", predict_end_ts-predict_start_ts)
