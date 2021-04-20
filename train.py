@@ -203,7 +203,7 @@ if __name__ == '__main__':
 
     nli_reader = NLIDataReader('datasets/AllNLI')
     train_num_labels = nli_reader.get_num_labels()
-    msnli_data = nli_reader.get_examples('train.gz',max_examples=650000)
+    msnli_data = nli_reader.get_examples('train.gz',max_examples=-1)
 
     all_data = msnli_data + hans_data
     random.shuffle(all_data)
