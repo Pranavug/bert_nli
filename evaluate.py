@@ -5,9 +5,10 @@ from tqdm import tqdm
 from sklearn import svm
 from sklearn.neighbors import KNeighborsClassifier
 from nltk.tokenize import word_tokenize
+from sklearn.decomposition import PCA
 
 
-def evaluate_knn(model, train_data, test_data, device, batch_size, checkpoint):
+def evaluate_knn(model, train_data, test_data, device, batch_size, checkpoint, n_neighbors=5):
     model.eval()
 
     with torch.no_grad():
@@ -71,6 +72,14 @@ def evaluate_knn(model, train_data, test_data, device, batch_size, checkpoint):
                 # print(x_train[ind])
                 y_train[ind]=true_labels[idx].item()
                 ind=ind+1
+
+    print("Running PCA now")
+
+    pca = PCA(n_components=70)
+    x_train = pca.fit_transform(x_train)
+    x_test = pca.transform(x_test)
+
+    print("PCA complete. Variance is", pca.explained_variance_ratio_)
 
     neigh = KNeighborsClassifier(n_jobs=-1, n_neighbors=5)
     print("Fitting KNN")
@@ -159,6 +168,14 @@ def evaluate_svm(model, train_data, test_data, device, batch_size, checkpoint):
                 # print(x_train[ind])
                 y_train[ind]=true_labels[idx].item()
                 ind=ind+1
+
+    print("Running PCA now")
+
+    pca = PCA(n_components=50)
+    x_train = pca.fit_transform(x_train)
+    x_test = pca.transform(x_test)
+
+    print("PCA complete. Variance is", pca.explained_variance_ratio_)
 
     clf = svm.SVC(kernel='rbf', C=0.01, cache_size=1000)
     print("Training SVM")

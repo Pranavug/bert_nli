@@ -254,7 +254,7 @@ if __name__ == '__main__':
 
     nli_reader = NLIDataReader('datasets/AllNLI')
     msnli_test_data = nli_reader.get_examples('dev.gz')
-    train_data = nli_reader.get_examples('train.gz',max_examples=50000)
+    train_data = nli_reader.get_examples('train.gz',max_examples=-1) # 50000
     random.shuffle(train_data)
 
     test_data = msnli_test_data + hans_test_data
@@ -267,9 +267,9 @@ if __name__ == '__main__':
     logging.info('accuracy on test set: {}'.format(test_acc))
     print("Training time:", train_end_ts-train_start_ts, "Prediction time:", predict_end_ts-predict_start_ts)
 
-    evaluate_knn(model, train_data, test_data, device, batch_size, checkpoint)
+    evaluate_knn(model, train_data, test_data, device, batch_size, checkpoint, n_neighbors=10)
 
-    train_data = nli_reader.get_examples('train.gz',max_examples=25000)
+    train_data = nli_reader.get_examples('train.gz',max_examples=80000) # 25000
     random.shuffle(train_data)
     evaluate_svm(model, train_data, test_data, device, batch_size, checkpoint)
 
