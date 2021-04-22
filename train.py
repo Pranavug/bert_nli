@@ -87,7 +87,10 @@ def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, c
         if gpu:
             true_labels = true_labels.to(device)
 
-        blended_loss, losses = loss_fn.calculate_loss(true_labels, logits, logits)
+        try:
+            blended_loss, losses = loss_fn.calculate_loss(true_labels, logits, logits)
+        except:
+            continue
 
         # back propagate
         if fp16:
