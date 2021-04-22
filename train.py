@@ -267,9 +267,9 @@ if __name__ == '__main__':
     logging.info('accuracy on test set: {}'.format(test_acc))
     print("Training time:", train_end_ts-train_start_ts, "Prediction time:", predict_end_ts-predict_start_ts)
 
-    evaluate_knn(model, train_data, test_data, device, batch_size, checkpoint, n_neighbors=8)
+    evaluate_knn(model, train_data, test_data, device, batch_size, checkpoint, n_neighbors=10)
 
-    train_data = nli_reader.get_examples('train.gz',max_examples=80000) # 25000
+    train_data = nli_reader.get_examples('train.gz',max_examples=100000) # 25000
     random.shuffle(train_data)
     evaluate_svm(model, train_data, test_data, device, batch_size, checkpoint)
 

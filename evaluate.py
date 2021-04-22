@@ -79,7 +79,7 @@ def evaluate_knn(model, train_data, test_data, device, batch_size, checkpoint, n
     x_train = pca.fit_transform(x_train)
     x_test = pca.transform(x_test)
 
-    print("PCA complete. Variance is", pca.explained_variance_ratio_)
+    # print("PCA complete. Variance is", pca.explained_variance_ratio_)
 
     neigh = KNeighborsClassifier(n_jobs=-1, n_neighbors=5)
     print("Fitting KNN")
@@ -175,7 +175,7 @@ def evaluate_svm(model, train_data, test_data, device, batch_size, checkpoint):
     x_train = pca.fit_transform(x_train)
     x_test = pca.transform(x_test)
 
-    print("PCA complete. Variance is", pca.explained_variance_ratio_)
+    # print("PCA complete. Variance is", pca.explained_variance_ratio_)
 
     clf = svm.SVC(kernel='rbf', C=0.01, cache_size=1000)
     print("Training SVM")
