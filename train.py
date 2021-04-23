@@ -89,7 +89,7 @@ def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, c
 
         try:
             blended_loss, losses = loss_fn.calculate_loss(true_labels, logits, logits)
-        except:
+        except RuntimeError,e:
             continue
 
         # back propagate
