@@ -22,7 +22,7 @@ def convert_test_train(x_train, y_train, x_test, y_test):
     return train, test
 
 
-def evaluate_protoNN(model, train_data, test_data, device, batch_size, checkpoint):
+def evaluate_protoNN(model, train_data, test_data, device, batch_size, checkpoint, proj_dim, num_proj):
     model.eval()
 
     with torch.no_grad():
@@ -91,7 +91,7 @@ def evaluate_protoNN(model, train_data, test_data, device, batch_size, checkpoin
     _, _, x_train, y_train, x_test, y_test = preprocessData(train, test)
 
     train, test = convert_test_train(x_train, y_train, x_test, y_test)
-    acc = main(train, test, device)
+    acc = main(train, test, device, proj_dim, num_proj)
 
     return acc
 

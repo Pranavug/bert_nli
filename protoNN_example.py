@@ -12,14 +12,15 @@ import helpermethods as helper
 import torch
 import time
 
-def main(train, test, device):
+def main(train, test, device, proj_dim, num_proj):
     # print("Train:", train.shape)
     # print(train)
     # print("Test:", test.shape)
     # print(test)
 
-    PROJECTION_DIM = 60
-    NUM_PROTOTYPES = 400
+    PROJECTION_DIM = proj_dim
+    NUM_PROTOTYPES = num_proj
+    print(PROJECTION_DIM, NUM_PROTOTYPES)
     REG_W = 0.0
     REG_B = 0.0
     REG_Z = 0.0
@@ -30,7 +31,7 @@ def main(train, test, device):
     NUM_EPOCHS = 15
     BATCH_SIZE = 32
     PRINT_STEP = 200
-    VAL_STEP = 10
+    VAL_STEP = 5
     OUT_DIR = './'
     GAMMA = 0.0015
 

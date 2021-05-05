@@ -150,14 +150,16 @@ def parse_args():
     ap.add_argument('--num_layers',type=int,default=12,help='No. of encoder layers for BERT')
     ap.add_argument('--output_dir', type=str, default='temp')
     ap.add_argument('--bert_layers', nargs="+", type=int, default=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+    ap.add_argument('--proj_dim',type=int,default=60)
+    ap.add_argument('--num_proj',type=int,default=400)
 
     args = ap.parse_args()
-    return args.batch_size, args.epoch_num, args.fp16, args.check_point, args.gpu,  args.scheduler_setting, args.max_grad_norm, args.warmup_percent, args.bert_type, args.trained_model, args.hans, args.reinit_layers, args.freeze_layers, args.loss_type, args.cross_entropy_flag, args.pool_type, args.device, args.num_layers, args.output_dir, args.bert_layers
+    return args.batch_size, args.epoch_num, args.fp16, args.check_point, args.gpu,  args.scheduler_setting, args.max_grad_norm, args.warmup_percent, args.bert_type, args.trained_model, args.hans, args.reinit_layers, args.freeze_layers, args.loss_type, args.cross_entropy_flag, args.pool_type, args.device, args.num_layers, args.output_dir, args.bert_layers, args.proj_dim, args.num_proj
 
 
 if __name__ == '__main__':
 
-    batch_size, epoch_num, fp16, checkpoint, gpu, scheduler_setting, max_grad_norm, warmup_percent, bert_type, trained_model, hans, reinit_layers, freeze_layers, loss_type, cross_entropy_flag, pool_type, device, num_layers, output_dir, bert_layers = parse_args()
+    batch_size, epoch_num, fp16, checkpoint, gpu, scheduler_setting, max_grad_norm, warmup_percent, bert_type, trained_model, hans, reinit_layers, freeze_layers, loss_type, cross_entropy_flag, pool_type, device, num_layers, output_dir, bert_layers, proj_dim, num_proj = parse_args()
     fp16 = bool(fp16)
     gpu = bool(gpu)
     hans = bool(hans)
@@ -264,7 +266,7 @@ if __name__ == '__main__':
     test_data = msnli_test_data + hans_test_data
     # test_data = dev_data
 
-    evaluate_protoNN(model, train_data, test_data, device, batch_size, checkpoint)
+    evaluate_protoNN(model, train_data, test_data, device, batch_size, checkpoint, proj_dim, num_proj)
 
     logging.info('test data size: {}'.format(len(test_data)))
     predict_start_ts = time.time()
