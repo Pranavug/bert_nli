@@ -20,7 +20,7 @@ def main(train, test, device, proj_dim, num_proj):
 
     PROJECTION_DIM = proj_dim
     NUM_PROTOTYPES = num_proj
-    print(PROJECTION_DIM, NUM_PROTOTYPES)
+    # print(PROJECTION_DIM, NUM_PROTOTYPES)
     REG_W = 0.0
     REG_B = 0.0
     REG_Z = 0.0

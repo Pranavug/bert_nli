@@ -259,8 +259,8 @@ if __name__ == '__main__':
         hans_test_data = []
 
     nli_reader = NLIDataReader('datasets/AllNLI')
-    msnli_test_data = nli_reader.get_examples('dev.gz', max_examples=-1)
-    train_data = nli_reader.get_examples('train.gz',max_examples=-1) # 50000
+    msnli_test_data = nli_reader.get_examples('dev.gz', max_examples=500)
+    train_data = nli_reader.get_examples('train.gz',max_examples=500) # 50000
     random.shuffle(train_data)
 
     test_data = msnli_test_data + hans_test_data
