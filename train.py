@@ -25,7 +25,7 @@ from utils.logging_handler import LoggingHandler
 from bert_nli import BertNLIModel, POOLING_CHOICES
 from test_trained_model import evaluate
 from losses import BlendedLoss, MAIN_LOSS_CHOICES, OnlineTripletLoss
-from evaluate import evaluate_knn, evaluate_svm
+from evaluate import evaluate_knn, evaluate_svm, evaluate_protoNN
 
 # constants
 DEVICE_CHOICES = ("cuda:0", "cuda:1", "cuda:2", "cuda:3")
@@ -84,6 +84,7 @@ def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, c
         logits, reps = model.ff(sent_pairs,checkpoint)
         if logits is None: continue
         true_labels = torch.LongTensor(labels)
+        # print("True labels", true_labels)
         if gpu:
             true_labels = true_labels.to(device)
 
@@ -246,7 +247,7 @@ if __name__ == '__main__':
     # assert best_model_dic is not None
 
     # for testing load the best model
-    model.load_model(best_model_dic)
+    # model.load_model(best_model_dic)
     logging.info('\n=====Training finished. Now start test=====')
 
     if hans:
@@ -256,12 +257,14 @@ if __name__ == '__main__':
         hans_test_data = []
 
     nli_reader = NLIDataReader('datasets/AllNLI')
-    msnli_test_data = nli_reader.get_examples('dev.gz')
+    msnli_test_data = nli_reader.get_examples('dev.gz', max_examples=-1)
     train_data = nli_reader.get_examples('train.gz',max_examples=-1) # 50000
     random.shuffle(train_data)
 
     test_data = msnli_test_data + hans_test_data
     # test_data = dev_data
+
+    evaluate_protoNN(model, train_data, test_data, device, batch_size, checkpoint)
 
     logging.info('test data size: {}'.format(len(test_data)))
     predict_start_ts = time.time()

@@ -13,8 +13,13 @@ import torch
 import time
 
 def main(train, test, device):
+    # print("Train:", train.shape)
+    # print(train)
+    # print("Test:", test.shape)
+    # print(test)
+
     PROJECTION_DIM = 60
-    NUM_PROTOTYPES = 80
+    NUM_PROTOTYPES = 400
     REG_W = 0.0
     REG_B = 0.0
     REG_Z = 0.0
@@ -22,12 +27,12 @@ def main(train, test, device):
     SPAR_B = 1.0
     SPAR_Z = 1.0
     LEARNING_RATE = 0.1
-    NUM_EPOCHS = 200
+    NUM_EPOCHS = 15
     BATCH_SIZE = 32
     PRINT_STEP = 200
-    VAL_STEP = 3
+    VAL_STEP = 10
     OUT_DIR = './'
-    GAMMA = None
+    GAMMA = 0.0015
 
     # Load data
     x_train, y_train = train[:, 1:], train[:, 0]
@@ -76,6 +81,7 @@ def main(train, test, device):
     matrixList = [x.detach().numpy() for x in matrixList]
     sparcityList = [SPAR_W, SPAR_B, SPAR_Z]
     nnz, size, sparse = helper.getModelSize(matrixList, sparcityList)
+    print("Train data shape:", train.shape, "Test:", test.shape)
     print("Final test accuracy:", acc, "Training time:", train_end_ts-train_start_ts, "Testing time:", test_end_ts-test_start_ts)
     print("Model size constraint (Bytes): ", size)
     print("Number of non-zeros: ", nnz)

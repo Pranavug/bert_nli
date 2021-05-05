@@ -102,16 +102,16 @@ def preprocessData(train, test):
     lab = np.array(lab) - min(lab)
     lab_ = np.zeros((x_train.shape[0], numClasses))
     lab_[np.arange(x_train.shape[0]), lab] = 1
-    y_train = lab_
+    # y_train = lab_
 
     # one hot y-test
     lab = y_test_.astype('uint8')
     lab = np.array(lab) - min(lab)
     lab_ = np.zeros((x_test.shape[0], numClasses))
     lab_[np.arange(x_test.shape[0]), lab] = 1
-    y_test = lab_
+    # y_test = lab_
 
-    return dataDimension, numClasses, x_train, y_train, x_test, y_test
+    return dataDimension, numClasses, x_train, y_train_.reshape(-1, 1), x_test, y_test_.reshape(-1, 1)
 
 
 
