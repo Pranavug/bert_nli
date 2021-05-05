@@ -65,14 +65,23 @@ def main(train, test, device, proj_dim, num_proj):
     train_end_ts = time.time()
 
     # Print some summary metrics
+    acc = 0
+    tot_count = 0
+    num_pts = x_test.shape[0]
     test_start_ts = time.time()
-    x_, y_= (torch.Tensor(x_test)).to(device), (torch.Tensor(y_test)).to(device)
 
-    logits = protoNN.forward(x_)
-    _, predictions = torch.max(logits, dim=1)
-    _, target = torch.max(y_, dim=1)
-    acc, count = trainer.accuracy(predictions, target)
+    for idx in range(num_pts//BATCH_SIZE):
+        x_, y_= (torch.Tensor(x_test[idx*BATCH_SIZE:(idx+1)*BATCH_SIZE])).to(device), (torch.Tensor(y_test[idx*BATCH_SIZE:(idx+1)*BATCH_SIZE])).to(device)
 
+        logits = protoNN.forward(x_)
+        _, predictions = torch.max(logits, dim=1)
+        _, target = torch.max(y_, dim=1)
+        temp_acc, count = trainer.accuracy(predictions, target)
+
+        acc += temp_acc
+        tot_count += 1
+
+    acc /= tot_count
     test_end_ts = time.time()
 
     #Model needs to be on cpu for numpy operations below
