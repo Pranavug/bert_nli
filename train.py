@@ -67,7 +67,7 @@ def train(model, optimizer, scheduler, train_data, dev_data, batch_size, fp16, c
     best_model_weights = None
     torch.cuda.empty_cache() # releases all unoccupied cached memory
 
-    for pointer in tqdm(range(0, len(train_data), batch_size),desc='training'):
+    for pointer in tqdm(range(0, len(train_data), batch_size),desc='training', position=0, leave=True):
         model.train() # model was in eval mode in evaluate(); re-activate the train mode
         optimizer.zero_grad() # clear gradients first
         # torch.cuda.empty_cache() # releases all unoccupied cached memory
@@ -249,7 +249,7 @@ if __name__ == '__main__':
     # assert best_model_dic is not None
 
     # for testing load the best model
-    # model.load_model(best_model_dic)
+    model.load_model(best_model_dic)
     logging.info('\n=====Training finished. Now start test=====')
 
     if hans:

@@ -12,9 +12,9 @@ N_PAIR_ANGULAR = 'n-pair-angular'
 RANDOM_TRIPLET = 'random-triplet'
 HARD_TRIPLET = 'hard-triplet'
 SEMI_HARD_TRIPLET = 'semi-hard-triplet'
-MAIN_LOSS_CHOICES = (N_PAIR, ANGULAR, N_PAIR_ANGULAR, RANDOM_TRIPLET, HARD_TRIPLET, SEMI_HARD_TRIPLET)
-
 CROSS_ENTROPY = 'cross-entropy'
+
+MAIN_LOSS_CHOICES = (N_PAIR, ANGULAR, N_PAIR_ANGULAR, RANDOM_TRIPLET, HARD_TRIPLET, SEMI_HARD_TRIPLET, CROSS_ENTROPY)
 
 
 class BlendedLoss(object):
@@ -23,6 +23,12 @@ class BlendedLoss(object):
         self.main_loss_type = main_loss_type
         assert main_loss_type in MAIN_LOSS_CHOICES, "invalid main loss: %s" % main_loss_type
 
+        self.cross_entropy_flag = cross_entropy_flag
+        self.lambda_blending = 0
+        if cross_entropy_flag:
+            self.cross_entropy_loss_fn = nn.CrossEntropyLoss()
+            self.lambda_blending = 0.3
+
         self.metrics = []
         if self.main_loss_type == N_PAIR:
             self.main_loss_fn = NPairLoss(device)
@@ -30,14 +36,11 @@ class BlendedLoss(object):
             self.main_loss_fn = AngularLoss(device)
         elif self.main_loss_type == N_PAIR_ANGULAR:
             self.main_loss_fn = NPairAngularLoss(device)
+        elif self.main_loss_type == CROSS_ENTROPY:
+            self.main_loss_fn = NPairLoss(device)
+            self.lambda_blending = 1.0
         else:
             raise ValueError
-
-        self.cross_entropy_flag = cross_entropy_flag
-        self.lambda_blending = 0
-        if cross_entropy_flag:
-            self.cross_entropy_loss_fn = nn.CrossEntropyLoss()
-            self.lambda_blending = 0.3
 
     def calculate_loss(self, target, output_embedding, output_cross_entropy=None):
         # print("target", target)
@@ -56,13 +59,14 @@ class BlendedLoss(object):
             blended_loss += self.lambda_blending * cross_entropy_loss
             loss_dict[CROSS_ENTROPY + '-loss'] = [cross_entropy_loss.item()]
 
-        loss_inputs = self._gen_loss_inputs(target, output_embedding)
-        main_loss_outputs = self.main_loss_fn(*loss_inputs)
-        main_loss = main_loss_outputs[0] if type(main_loss_outputs) in (tuple, list) else main_loss_outputs
-        blended_loss += (1-self.lambda_blending) * main_loss
-        loss_dict[self.main_loss_type+'-loss'] = [main_loss.item()]
-        for metric in self.metrics:
-            metric(output_embedding, target, main_loss_outputs)
+        if self.lambda_blending != 1:
+            loss_inputs = self._gen_loss_inputs(target, output_embedding)
+            main_loss_outputs = self.main_loss_fn(*loss_inputs)
+            main_loss = main_loss_outputs[0] if type(main_loss_outputs) in (tuple, list) else main_loss_outputs
+            blended_loss += (1-self.lambda_blending) * main_loss
+            loss_dict[self.main_loss_type+'-loss'] = [main_loss.item()]
+            for metric in self.metrics:
+                metric(output_embedding, target, main_loss_outputs)
 
         return blended_loss, loss_dict
 
