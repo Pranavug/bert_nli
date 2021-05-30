@@ -249,7 +249,7 @@ if __name__ == '__main__':
     # assert best_model_dic is not None
 
     # for testing load the best model
-    model.load_model(best_model_dic)
+    # model.load_model(best_model_dic)
     logging.info('\n=====Training finished. Now start test=====')
 
     if hans:
@@ -269,17 +269,17 @@ if __name__ == '__main__':
     evaluate_protoNN(model, train_data, test_data, device, batch_size, checkpoint, proj_dim, num_proj)
 
     logging.info('test data size: {}'.format(len(test_data)))
-    predict_start_ts = time.time()
-    test_acc = evaluate(model, test_data, checkpoint)
-    predict_end_ts = time.time()
-    logging.info('accuracy on test set: {}'.format(test_acc))
-    print("Training time:", train_end_ts-train_start_ts, "Prediction time:", predict_end_ts-predict_start_ts)
+    # predict_start_ts = time.time()
+    # test_acc = evaluate(model, test_data, checkpoint)
+    # predict_end_ts = time.time()
+    # logging.info('accuracy on test set: {}'.format(test_acc))
+    # print("Training time:", train_end_ts-train_start_ts, "Prediction time:", predict_end_ts-predict_start_ts)
 
     evaluate_knn(model, train_data, test_data, device, batch_size, checkpoint, n_neighbors=10)
 
-    train_data = nli_reader.get_examples('train.gz',max_examples=100000) # 25000
-    random.shuffle(train_data)
-    evaluate_svm(model, train_data, test_data, device, batch_size, checkpoint)
+    # train_data = nli_reader.get_examples('train.gz',max_examples=100000) # 25000
+    # random.shuffle(train_data)
+    # evaluate_svm(model, train_data, test_data, device, batch_size, checkpoint)
 
     if model_save_path is not None:
         os.makedirs(model_save_path, exist_ok=True)

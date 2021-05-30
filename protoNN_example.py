@@ -27,11 +27,11 @@ def main(train, test, device, proj_dim, num_proj):
     SPAR_W = 1.0
     SPAR_B = 1.0
     SPAR_Z = 1.0
-    LEARNING_RATE = 0.1
-    NUM_EPOCHS = 15
+    LEARNING_RATE = 0.02
+    NUM_EPOCHS = 18
     BATCH_SIZE = 32
     PRINT_STEP = 200
-    VAL_STEP = 5
+    VAL_STEP = 3
     OUT_DIR = './'
     GAMMA = 0.0015
 
@@ -67,7 +67,9 @@ def main(train, test, device, proj_dim, num_proj):
     # Print some summary metrics
     acc = 0
     tot_count = 0
+    avg_uncertainty = 0
     num_pts = x_test.shape[0]
+    print("Haha:", num_pts//BATCH_SIZE)
     test_start_ts = time.time()
 
     for idx in range(num_pts//BATCH_SIZE):
@@ -78,11 +80,15 @@ def main(train, test, device, proj_dim, num_proj):
         _, target = torch.max(y_, dim=1)
         temp_acc, count = trainer.accuracy(predictions, target)
 
+        uncertainty, _ = torch.max(torch.nn.functional.softmax(logits/2), dim=1)
+        avg_uncertainty += torch.sum(uncertainty, 0)
+
         acc += temp_acc
         tot_count += 1
 
     acc /= tot_count
     test_end_ts = time.time()
+    avg_uncertainty /= (tot_count * BATCH_SIZE)
 
     #Model needs to be on cpu for numpy operations below
     protoNN = protoNN.cpu()
@@ -100,6 +106,7 @@ def main(train, test, device, proj_dim, num_proj):
     print("Actual model size: ", size)
     print("Actual non-zeros: ", nnz)
     print("Saving model matrices to: ", OUT_DIR)
+    print("Average uncertainty:", avg_uncertainty)
     np.save(OUT_DIR + '/W.npy', matrixList[0])
     np.save(OUT_DIR + '/B.npy', matrixList[1])
     np.save(OUT_DIR + '/Z.npy', matrixList[2])

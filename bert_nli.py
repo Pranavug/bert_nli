@@ -88,6 +88,9 @@ class BertNLIModel(nn.Module):
         if 'bert-base' in bert_type:
             self.bert = BertModel.from_pretrained('bert-base-uncased', output_hidden_states=True)#, num_labels=3)
             self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+        elif 'bert-local' in bert_type:
+            self.bert = BertModel.from_pretrained('./output/temp', local_files_only=True, output_hidden_states=True)#, num_labels=3)
+            self.tokenizer = BertTokenizer.from_pretrained('./output/temp_bert-base-2021-05-30_10-40-31', local_files_only=True)
         elif 'bert-large' in bert_type:
             self.bert = BertModel.from_pretrained('bert-large-uncased', output_hidden_states=True)#, num_labels=3)
             self.tokenizer = BertTokenizer.from_pretrained('bert-large-uncased')

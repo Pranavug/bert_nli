@@ -37,8 +37,10 @@ def evaluate_protoNN(model, train_data, test_data, device, batch_size, checkpoin
         x_test=np.zeros(shape=(dim2,768))
         y_test=np.zeros(shape=(dim2,1))
 
+        test_start_ts = time.time()
+
         ind=0
-        for pointer in tqdm(range(0, len(test_data), batch_size),desc='training'):
+        for pointer in tqdm(range(0, len(test_data), batch_size),desc='testing'):
             model.train() # model was in eval mode in evaluate(); re-activate the train mode
             # torch.cuda.empty_cache() # releases all unoccupied cached memory
 
@@ -60,6 +62,8 @@ def evaluate_protoNN(model, train_data, test_data, device, batch_size, checkpoin
                 x_test[ind]=output_embedding[idx].detach().numpy()
                 y_test[ind]=true_labels[idx].item()
                 ind=ind+1
+
+        test_end_ts = time.time()
 
         ind=0
         train_start_ts = time.time()
@@ -92,6 +96,8 @@ def evaluate_protoNN(model, train_data, test_data, device, batch_size, checkpoin
 
     train, test = convert_test_train(x_train, y_train, x_test, y_test)
     acc = main(train, test, device, proj_dim, num_proj)
+
+    print("BERT layers inference time", test_end_ts-test_start_ts)
 
     return acc
 
