@@ -89,8 +89,12 @@ class BertNLIModel(nn.Module):
             self.bert = BertModel.from_pretrained('bert-base-uncased', output_hidden_states=True)#, num_labels=3)
             self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
         elif 'bert-local' in bert_type:
-            self.bert = BertModel.from_pretrained('./output/temp', local_files_only=True, output_hidden_states=True)#, num_labels=3)
-            self.tokenizer = BertTokenizer.from_pretrained('./output/temp_bert-base-2021-05-30_10-40-31', local_files_only=True)
+            # self.bert = BertModel.from_pretrained('./output/bert_local_pretrained', local_files_only=True, output_hidden_states=True)#, num_labels=3)
+            # self.tokenizer = BertTokenizer.from_pretrained('./output/bert_local_pretrained', local_files_only=True)
+
+            self.bert = BertModel.from_pretrained('bert-base-uncased', output_hidden_states=True)#, num_labels=3)
+            self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+            self.load_model('./output/bert_local_pretrained/nli_model.state_dict')
         elif 'bert-large' in bert_type:
             self.bert = BertModel.from_pretrained('bert-large-uncased', output_hidden_states=True)#, num_labels=3)
             self.tokenizer = BertTokenizer.from_pretrained('bert-large-uncased')
@@ -151,12 +155,11 @@ class BertNLIModel(nn.Module):
                     pp.requires_grad = True
 
 
-    def load_model(self, sdict):
-        if self.gpu:
-            self.load_state_dict(sdict)
-            self.to(self.device)
-        else:
-            self.load_state_dict(sdict)
+    def load_model(self, input_path):
+        sdict = torch.load(input_path)
+        self.load_state_dict(sdict, strict=False)
+        self.to(self.device)
+
 
     def forward(self, sent_pair_list, checkpoint=True, bs=None):
         all_probs = None
